@@ -1,0 +1,30 @@
+# Ignorar arquivos de ambiente e cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Ignorar arquivos do Docker
+.dockerignore
+
+# Ignorar arquivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignorar logs
+*.log
+
+# Ignorar arquivos de ambiente
+.env
+.env.local
+
+# Ignorar volumes do Docker (se extraídos)
+ollama-models/

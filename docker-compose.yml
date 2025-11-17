@@ -1,0 +1,30 @@
+services:
+  agent1-local:
+    build:
+      context: ./agent1-local
+      dockerfile: Dockerfile
+    container_name: agent1-local
+    ports:
+      - "8001:8001"
+    volumes:
+      # Volume persistente para modelos do Ollama
+      - ollama-models:/root/.ollama
+    networks:
+      - instagram-ai-network
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+networks:
+  instagram-ai-network:
+    driver: bridge
+
+volumes:
+  ollama-models:
+    driver: local
