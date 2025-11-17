@@ -21,6 +21,28 @@ services:
       start_period: 120s
     restart: unless-stopped
 
+  agent2-gemini:
+    build:
+      context: ./agent2-gemini
+      dockerfile: Dockerfile
+    container_name: agent2-gemini
+    ports:
+      - "8002:8002"
+    volumes:
+      # Mapeia a pasta 'outputs' local para a pasta '/app/outputs' no container
+      - ./agent2-gemini/outputs:/app/outputs
+    networks:
+      - instagram-ai-network
+    env_file:
+      - ./agent2-gemini/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
 networks:
   instagram-ai-network:
     driver: bridge

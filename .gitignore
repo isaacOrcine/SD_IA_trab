@@ -25,6 +25,14 @@ ENV/
 # Ignorar arquivos de ambiente
 .env
 .env.local
+agent2-gemini/.env
 
 # Ignorar volumes do Docker (se extraídos)
 ollama-models/
+gemini-outputs/
+
+# Ignorar imagens geradas
+agent2-gemini/outputs/
+*.png
+*.jpg
+*.jpeg

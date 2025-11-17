@@ -11,9 +11,15 @@ Trab_SD/
 │   ├── app.py
 │   ├── requirements.txt
 │   └── entrypoint.sh
-├── agent2-gemini/      # Agente 2 - Gemini (Cloud) [TODO]
+├── agent2-gemini/      # Agente 2 - Google Gemini (Cloud)
+│   ├── Dockerfile
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── outputs/        # Imagens geradas
 ├── api/                # API principal de orquestração [TODO]
-└── docker-compose.yml
+├── docker-compose.yml
+└── test_gemini.py      # Script de teste para Agent 2
 ```
 
 ## 🚀 Agent 1 - Modelo Local (Ollama + Llama3.2:1b)
@@ -197,18 +203,280 @@ docker-compose up
 
 ### Portas Utilizadas
 - **8001:** API FastAPI do Agent 1
+- **8002:** API FastAPI do Agent 2
 - **11434:** Ollama (interno ao container)
 
 ### Volumes Persistentes
 - `ollama-models`: Cache dos modelos baixados
 
+---
+
+## 🌐 Agent 2 - Google Gemini (Gemini 2.0 Flash + Imagen 3.0)
+
+O segundo agente utiliza **Google Gemini API** com modelos de última geração na nuvem.
+
+### Funcionalidades
+
+- ✅ Servidor HTTP com FastAPI na porta 8002
+- ✅ Endpoint POST `/improve` para melhorar captions
+- ✅ Endpoint POST `/generate-image` para gerar imagens
+- ✅ Modelo gemini-2.0-flash-exp (texto)
+- ✅ Modelo imagen-3.0-generate-001 (imagens)
+- ✅ Volume persistente para imagens geradas
+
+### Configuração Inicial
+
+**1. Obter chave da API do Gemini (gratuita):**
+   - Acesse: https://makersuite.google.com/app/apikey
+   - Faça login com sua conta Google
+   - Clique em "Create API Key"
+   - Copie a chave gerada
+
+**2. Configurar variável de ambiente:**
+
+```powershell
+# Copiar arquivo de exemplo
+Copy-Item agent2-gemini\.env.example agent2-gemini\.env
+
+# Editar .env e adicionar sua chave
+# GOOGLE_API_KEY=sua_chave_aqui
+```
+
+**3. Iniciar o agente:**
+
+```bash
+# Iniciar apenas Agent 2
+docker-compose up --build agent2-gemini
+
+# Ou iniciar todos os agentes
+docker-compose up --build
+```
+
+### Endpoints do Agent 2
+
+#### GET `/`
+Retorna informações do agente
+
+**Response:**
+```json
+{
+  "agent": "agent2-gemini",
+  "models": {
+    "text": "gemini-2.0-flash-exp",
+    "image": "imagen-3.0-generate-001"
+  },
+  "status": "online"
+}
+```
+
+#### GET `/health`
+Verifica se a API do Gemini está configurada
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "gemini_api": "configured"
+}
+```
+
+#### POST `/improve`
+Melhora uma caption do Instagram
+
+**Request:**
+```json
+{
+  "draft_text": "dia incrivel na praia!! sol mar e diversao",
+  "style": "casual",
+  "target_audience": "jovens adultos"
+}
+```
+
+**Response:**
+```json
+{
+  "improved_text": "☀️ Dias perfeitos são feitos de sol, mar e boas energias! A praia tem esse poder de renovar a alma e recarregar as energias. Momentos assim merecem ser vividos intensamente! 🌊✨",
+  "hashtags": [
+    "#PraiaDia",
+    "#VerãoPerfeito",
+    "#SolEMar",
+    "#VidaNaPraia",
+    "#BeachVibes",
+    "#SummerDay",
+    "#GoodVibes",
+    "#ViagemDePraia"
+  ],
+  "agent": "agent2-gemini",
+  "model": "gemini-2.0-flash-exp"
+}
+```
+
+#### POST `/generate-image`
+Gera imagem para o post
+
+**Request:**
+```json
+{
+  "prompt": "beautiful sunset at the beach with palm trees",
+  "style": "realistic"
+}
+```
+
+**Response:**
+```json
+{
+  "image_path": "/app/outputs/instagram_post_20251117_140530.png",
+  "prompt_used": "High quality Instagram post image, realistic style, beautiful sunset...",
+  "agent": "agent2-gemini",
+  "model": "imagen-3.0-generate-001"
+}
+```
+
+### Exemplos de Uso do Agent 2
+
+#### Usando PowerShell
+
+```powershell
+# Melhorar caption
+$body = @{
+    draft_text = "Café da manhã delicioso hoje!"
+    style = "casual"
+    target_audience = "amantes de café"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri http://localhost:8002/improve `
+    -Method Post -Body $body -ContentType 'application/json'
+
+# Gerar imagem
+$body = @{
+    prompt = "cozy coffee shop with latte art"
+    style = "artistic"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri http://localhost:8002/generate-image `
+    -Method Post -Body $body -ContentType 'application/json'
+```
+
+#### Usando Python
+
+```python
+import requests
+
+# Melhorar caption
+url = "http://localhost:8002/improve"
+payload = {
+    "draft_text": "Treino pesado hoje! 💪",
+    "style": "motivacional",
+    "target_audience": "fitness enthusiasts"
+}
+
+response = requests.post(url, json=payload)
+result = response.json()
+
+print(f"Texto melhorado:\n{result['improved_text']}")
+print(f"\nHashtags: {' '.join(result['hashtags'])}")
+
+# Gerar imagem
+url = "http://localhost:8002/generate-image"
+payload = {
+    "prompt": "gym workout motivation, person lifting weights",
+    "style": "realistic"
+}
+
+response = requests.post(url, json=payload)
+result = response.json()
+
+print(f"Imagem salva em: {result['image_path']}")
+```
+
+### Script de Teste Automatizado
+
+Execute o script de teste completo:
+
+```powershell
+# Instalar requests se necessário
+pip install requests
+
+# Executar testes
+python test_gemini.py
+```
+
+O script testa todos os endpoints e mostra os resultados formatados.
+
+### Informações Técnicas - Agent 2
+
+**Modelos:**
+- **Texto:** gemini-2.0-flash-exp (mais recente, gratuito)
+- **Imagem:** imagen-3.0-generate-001
+
+**Performance:**
+- **Melhoria de caption:** 2-5 segundos
+- **Geração de imagem:** 30-60 segundos
+- **Requisitos:** API Key do Google
+
+**Portas:**
+- **8002:** API FastAPI do Agent 2
+
+**Volumes:**
+- `gemini-outputs`: Imagens geradas persistidas
+
+**Limites da API Gratuita:**
+- Gemini 2.0 Flash: 15 RPM (requests por minuto)
+- Imagen 3.0: ~50 imagens/dia na tier gratuita
+- Detalhes: https://ai.google.dev/pricing
+
+---
+
+## 🔄 Workflow Completo (Agent 1 + Agent 2)
+
+```
+1. Agent 1 gera rascunho inicial
+   ↓
+2. Agent 2 melhora o texto e adiciona hashtags
+   ↓
+3. Agent 2 gera imagem baseada no conteúdo
+   ↓
+4. Post completo pronto para publicação!
+```
+
+**Exemplo de uso combinado:**
+
+```powershell
+# 1. Gerar rascunho com Agent 1
+$draft = Invoke-RestMethod -Uri http://localhost:8001/generate `
+    -Method Post -ContentType 'application/json' `
+    -Body '{"topic": "café da manhã", "style": "casual"}'
+
+# 2. Melhorar com Agent 2
+$improved = Invoke-RestMethod -Uri http://localhost:8002/improve `
+    -Method Post -ContentType 'application/json' `
+    -Body (@{
+        draft_text = $draft.draft
+        style = "casual"
+        target_audience = "food lovers"
+    } | ConvertTo-Json)
+
+# 3. Gerar imagem
+$image = Invoke-RestMethod -Uri http://localhost:8002/generate-image `
+    -Method Post -ContentType 'application/json' `
+    -Body '{"prompt": "delicious breakfast coffee and croissant", "style": "realistic"}'
+
+Write-Host "Caption final: $($improved.improved_text)"
+Write-Host "Hashtags: $($improved.hashtags -join ' ')"
+Write-Host "Imagem: $($image.image_path)"
+```
+
+### Volumes Persistentes
+
 ## 🔜 Próximos Passos
 
-- [ ] Implementar Agent 2 com Google Gemini
+- [x] ~~Implementar Agent 2 com Google Gemini~~
+- [x] ~~Adicionar geração de imagens~~
 - [ ] Criar API de orquestração para coordenar agentes
 - [ ] Implementar sistema de escolha/ranking de posts
-- [ ] Adicionar geração de imagens
 - [ ] Interface web para testar os agentes
+- [ ] Sistema de cache para respostas
+- [ ] Integração com API do Instagram para publicação automática
 
 ## 📝 Notas
 
