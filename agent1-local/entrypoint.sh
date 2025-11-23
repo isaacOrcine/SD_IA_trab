@@ -1,16 +1,38 @@
 #!/bin/bash
+set -e
 
-# Iniciar Ollama em background
-ollama serve &
+echo "✅ Iniciando Agent1 - Ollama Local Client"
 
-# Aguardar o Ollama iniciar
-echo "Aguardando Ollama iniciar..."
-sleep 5
+# Verificar se pode conectar ao Ollama
+max_attempts=30
+attempt=0
 
-# Baixar o modelo llama3.2:1b
-echo "Baixando modelo llama3.2:1b..."
-ollama pull llama3.2:1b
+echo "⏳ Aguardando Ollama iniciar..."
+while [ $attempt -lt $max_attempts ]; do
+    if curl -s http://ollama:11434/api/tags > /dev/null 2>&1; then
+        echo "✅ Ollama está pronto!"
+        break
+    fi
+    
+    attempt=$((attempt + 1))
+    echo "   Tentativa $attempt/$max_attempts..."
+    sleep 2
+done
 
-# Iniciar a aplicação FastAPI
-echo "Iniciando servidor FastAPI..."
-uvicorn app:app --host 0.0.0.0 --port 8001
+if [ $attempt -eq $max_attempts ]; then
+    echo "❌ Ollama não respondeu após $max_attempts tentativas"
+    exit 1
+fi
+
+# Verificar se modelo existe
+echo "🤖 Verificando modelo llama3.2:1b..."
+if ! curl -s http://ollama:11434/api/tags | grep -q "llama3.2:1b"; then
+    echo "📥 Modelo não encontrado, puxando..."
+    curl -X POST http://ollama:11434/api/pull -d '{"name":"llama3.2:1b"}'
+    echo "✅ Modelo baixado!"
+else
+    echo "✅ Modelo já existe"
+fi
+
+echo "🚀 Iniciando aplicação FastMCP..."
+exec python app.py

@@ -1,4 +1,16 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - instagram-ai-network
+
   agent1-local:
     build:
       context: ./agent1-local
@@ -7,19 +19,16 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      # Volume persistente para modelos do Ollama
       - ollama-models:/root/.ollama
     networks:
       - instagram-ai-network
     environment:
-      - OLLAMA_HOST=0.0.0.0
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
-    restart: unless-stopped
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+    command: python app.py
+    stdin_open: true
+    tty: true
 
   agent2-gemini:
     build:
@@ -29,19 +38,31 @@ services:
     ports:
       - "8002:8002"
     volumes:
-      # Mapeia a pasta 'outputs' local para a pasta '/app/outputs' no container
       - ./agent2-gemini/outputs:/app/outputs
     networks:
       - instagram-ai-network
     env_file:
       - ./agent2-gemini/.env
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
+    command: python app.py
+    stdin_open: true
+    tty: true
+
+  orchestrator:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: orchestrator
+    environment:
+      - AGENT1_URL=http://agent1-local:8001
+      - AGENT2_URL=http://agent2-gemini:8002
+    networks:
+      - instagram-ai-network
+    depends_on:
+      - agent1-local
+      - agent2-gemini
+    command: python main.py
+    stdin_open: true
+    tty: true
 
 networks:
   instagram-ai-network:

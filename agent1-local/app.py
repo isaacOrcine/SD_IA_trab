@@ -1,122 +1,85 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+"""
+Agent1 - Servidor MCP com Ollama Local
+Gera rascunhos de posts usando modelo Llama
+"""
+
 import httpx
-import json
-from typing import Optional
+from fastmcp import FastMCP
+from fastapi import FastAPI
+from pydantic import BaseModel
+import uvicorn
+import logging
 
-app = FastAPI(title="Agent 1 - Ollama Local")
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+# Criar servidor MCP
+mcp = FastMCP("Agent1-Llama-Local")
 
-class GenerateRequest(BaseModel):
+# ✅ Modelo para request
+class GenerateDraftRequest(BaseModel):
     topic: str
     style: str
+    tone: str = "neutro"
 
-
-class GenerateResponse(BaseModel):
-    draft: str
-    agent: str
-    model: str
-
-
-@app.get("/")
-async def root():
-    return {
-        "agent": "agent1-local",
-        "model": "llama3.2:1b",
-        "status": "online"
-    }
-
-
-@app.get("/health")
-async def health():
-    """Verifica se o Ollama está disponível"""
+@mcp.tool()
+async def generate_draft(topic: str, style: str, tone: str = "neutro") -> str:
+    """Gera um rascunho inicial usando Ollama local."""
+    prompt = f"Crie uma caption para Instagram. Tópico: {topic}, Estilo: {style}, Tom: {tone}. Retorne apenas o texto."
+    
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:11434/api/tags")
-            if response.status_code == 200:
-                return {"status": "healthy", "ollama": "online"}
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Ollama indisponível: {str(e)}")
-
-
-@app.post("/generate", response_model=GenerateResponse)
-async def generate_post(request: GenerateRequest):
-    """
-    Gera um rascunho de post do Instagram usando Ollama local
-    
-    Args:
-        topic: Tópico do post (ex: "Serviços de computação")
-        style: Estilo do post (ex: "casual", "profissional", "divertido")
-    
-    Returns:
-        draft: Rascunho do post gerado
-        agent: Nome do agente (agent1-local)
-        model: Modelo usado (llama3.2:1b)
-    """
-    
-    # Criar prompt para o modelo
-    prompt = f"""Você é um criador de conteúdo para Instagram. 
-Crie uma caption criativa e envolvente para um post sobre: {request.topic}
-Estilo desejado: {request.style}
-
-A caption deve:
-- Ter entre 2-4 linhas
-- Ser atrativa e engajadora
-- Usar emojis apropriados
-- Incluir 3-5 hashtags relevantes no final
-
-Caption:"""
-    
-    # Chamar Ollama via API
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        logger.info(f"📝 Conectando ao Ollama para gerar rascunho...")
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
-                "http://localhost:11434/api/generate",
-                json={
-                    "model": "llama3.2:1b",
-                    "prompt": prompt,
-                    "stream": False
-                }
+                "http://ollama:11434/api/generate",
+                json={"model": "llama3.2:1b", "prompt": prompt, "stream": False}
             )
-            
             if response.status_code != 200:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Erro ao chamar Ollama: {response.text}"
-                )
+                logger.error(f"❌ Ollama retornou status {response.status_code}")
+                return f"Erro: Status {response.status_code}"
             
-            result = response.json()
-            draft = result.get("response", "").strip()
-            
-            if not draft:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Modelo não retornou resposta"
-                )
-            
-            return GenerateResponse(
-                draft=draft,
-                agent="agent1-local",
-                model="llama3.2:1b"
-            )
-            
-    except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504,
-            detail="Timeout ao gerar conteúdo - modelo pode estar processando"
-        )
-    except httpx.RequestError as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Erro de conexão com Ollama: {str(e)}"
-        )
+            result = response.json().get("response", "").strip()
+            if result:
+                logger.info(f"✅ Rascunho gerado com sucesso")
+                return result
+            else:
+                logger.error(f"❌ Resposta vazia do Ollama")
+                return "Erro: Resposta vazia do Ollama"
+    except httpx.ConnectError as e:
+        logger.error(f"❌ Não conseguiu conectar ao Ollama: {e}")
+        return f"Erro: Não conseguiu conectar ao Ollama - {str(e)}"
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro interno: {str(e)}"
-        )
+        logger.error(f"❌ Erro ao chamar Ollama: {e}")
+        return f"Erro ao conectar Ollama: {str(e)}"
 
+# ✅ CORREÇÃO CRÍTICA: Criar aplicação FastAPI com os endpoints do FastMCP
+app = FastAPI(title="Agent1 - Llama Local")
+
+# Registrar os tools como endpoints
+@app.get("/")
+async def health():
+    """Health check endpoint"""
+    return {"status": "ok", "service": "Agent1-Llama-Local"}
+
+@app.post("/api/tools/generate_draft")
+async def api_generate_draft(request: GenerateDraftRequest):
+    """API endpoint para gerar rascunho - aceita JSON body"""
+    try:
+        logger.info(f"📝 API Request: topic={request.topic}, style={request.style}, tone={request.tone}")
+        result = await generate_draft(request.topic, request.style, request.tone)
+        return {
+            "content": [{"type": "text", "text": result}]
+        }
+    except Exception as e:
+        logger.error(f"❌ Erro no endpoint: {e}")
+        return {
+            "error": str(e),
+            "content": [{"type": "text", "text": f"Erro: {str(e)}"}]
+        }
 
 if __name__ == "__main__":
-    import uvicorn
+    print("✅ Iniciando servidor MCP Agent1 na porta 8001...")
+    logger.info("🚀 Servidor MCP iniciando na porta 8001")
+    
     uvicorn.run(app, host="0.0.0.0", port=8001)
