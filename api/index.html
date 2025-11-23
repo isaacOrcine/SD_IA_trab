@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram AI Post Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #E1306C;
+            --secondary: #405DE6;
+            --accent: #5B51D8;
+            --bg-primary: #0a0e27;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --success: #4ade80;
+            --warning: #facc15;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 0;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1em;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(225, 48, 108, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(225, 48, 108, 0.3);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(225, 48, 108, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .result-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-section h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .result-text {
+            padding: 15px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            line-height: 1.6;
+            word-break: break-word;
+            font-size: 0.95em;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 1.1em;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status.active {
+            display: block;
+        }
+
+        .status.success {
+            background: rgba(74, 222, 128, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .status.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .history {
+            margin-top: 40px;
+        }
+
+        .history h2 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .history-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .history-item {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-item:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .history-item-topic {
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .history-item-time {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .copy-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin-top: 10px;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent);
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>📱 Instagram AI Post Generator</h1>
+            <p>Crie posts incríveis com IA - Ollama + Gemini</p>
+        </header>
+
+        <!-- Status -->
+        <div id="status" class="status"></div>
+
+        <!-- Grid Principal -->
+        <div class="grid">
+            <!-- Formulário -->
+            <div class="card">
+                <h2>⚙️ Configurações</h2>
+                <form id="form">
+                    <div class="form-group">
+                        <label for="topic">Tema/Tópico</label>
+                        <input type="text" id="topic" name="topic" placeholder="Ex: IA e Automação" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="style">Estilo</label>
+                        <select id="style" name="style" required>
+                            <option value="">Selecione um estilo</option>
+                            <option value="Tecnológico">Tecnológico</option>
+                            <option value="Casual">Casual</option>
+                            <option value="Profissional">Profissional</option>
+                            <option value="Engraçado">Engraçado</option>
+                            <option value="Inspiracional">Inspiracional</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tone">Tom</label>
+                        <select id="tone" name="tone">
+                            <option value="criativo">Criativo</option>
+                            <option value="neutro">Neutro</option>
+                            <option value="persuasivo">Persuasivo</option>
+                            <option value="educacional">Educacional</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="audience">Público Alvo</label>
+                        <input type="text" id="audience" name="audience" placeholder="Ex: Desenvolvedores e tech enthusiasts">
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="generateBtn">
+                        🚀 Gerar Post
+                    </button>
+                </form>
+            </div>
+
+            <!-- Carregamento -->
+            <div id="loading" class="loading card">
+                <div class="spinner"></div>
+                <div class="loading-text">⏳ Gerando seu post...<br><span id="current-step">Etapa 1: Rascunho</span></div>
+            </div>
+
+            <!-- Resultados -->
+            <div id="results" class="results card">
+                <h2>✅ Resultados</h2>
+                <div id="resultsContent"></div>
+            </div>
+        </div>
+
+        <!-- Histórico -->
+        <div class="card history">
+            <h2>📜 Histórico</h2>
+            <div id="history-list" class="history-list">
+                <p style="color: var(--text-secondary);">Carregando histórico...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('form');
+        const loadingDiv = document.getElementById('loading');
+        const resultsDiv = document.getElementById('results');
+        const statusDiv = document.getElementById('status');
+        const generateBtn = document.getElementById('generateBtn');
+
+        // Carrega histórico ao iniciar
+        loadHistory();
+
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await generatePost();
+        });
+
+        async function generatePost() {
+            const topic = document.getElementById('topic').value;
+            const style = document.getElementById('style').value;
+            const tone = document.getElementById('tone').value;
+            const audience = document.getElementById('audience').value || 'público geral';
+
+            if (!topic || !style) {
+                showStatus('Por favor preencha todos os campos obrigatórios', 'error');
+                return;
+            }
+
+            // Mostrar carregamento
+            form.style.display = 'none';
+            loadingDiv.classList.add('active');
+            resultsDiv.classList.remove('active');
+            statusDiv.classList.remove('active');
+            generateBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/generate-post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        topic,
+                        style,
+                        tone,
+                        target_audience: audience
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Erro ao gerar post');
+                }
+
+                const data = await response.json();
+
+                // Mostrar resultados
+                loadingDiv.classList.remove('active');
+                resultsDiv.classList.add('active');
+                displayResults(data);
+                
+                showStatus('✅ Post gerado com sucesso!', 'success');
+
+                // Recarregar histórico
+                setTimeout(loadHistory, 1000);
+
+            } catch (error) {
+                loadingDiv.classList.remove('active');
+                showStatus(`❌ Erro: ${error.message}`, 'error');
+                form.style.display = 'block';
+            } finally {
+                generateBtn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            const html = `
+                <div class="result-section">
+                    <h3>📝 Rascunho Inicial</h3>
+                    <div class="result-text">${escapeHtml(data.draft)}</div>
+                    <button class="copy-btn" onclick="copyToClipboard(\`${escapeHtml(data.draft)}\`)">Copiar</button>
+                </div>
+
+                <div class="result-section">
+                    <h3>✨ Post Final Otimizado</h3>
+                    <div class="result-text">${escapeHtml(data.final_post)}</div>
+                    <button class="copy-btn" onclick="copyToClipboard(\`${escapeHtml(data.final_post)}\`)">Copiar</button>
+                </div>
+
+                <div class="result-section">
+                    <h3>🎨 Prompt de Imagem</h3>
+                    <div class="result-text">${escapeHtml(data.image_prompt)}</div>
+                    <button class="copy-btn" onclick="copyToClipboard(\`${escapeHtml(data.image_prompt)}\`)">Copiar</button>
+                </div>
+
+                <div class="result-section">
+                    <h3>⏰ Timestamp</h3>
+                    <div class="result-text">${new Date(data.timestamp).toLocaleString('pt-BR')}</div>
+                </div>
+            `;
+            document.getElementById('resultsContent').innerHTML = html;
+        }
+
+        function copyToClipboard(text) {
+            const decoded = text.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+            navigator.clipboard.writeText(decoded).then(() => {
+                showStatus('✅ Copiado para a área de transferência!', 'success');
+            });
+        }
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status active ${type}`;
+            setTimeout(() => {
+                statusDiv.classList.remove('active');
+            }, 5000);
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const data = await response.json();
+                
+                const historyList = document.getElementById('history-list');
+                if (data.history && data.history.length > 0) {
+                    historyList.innerHTML = data.history.map(item => `
+                        <div class="history-item" onclick="viewHistoryItem('${item.filename}')">
+                            <div class="history-item-topic">📌 ${escapeHtml(item.topic)}</div>
+                            <div class="history-item-time">${new Date(item.timestamp).toLocaleString('pt-BR')}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    historyList.innerHTML = '<p style="color: var(--text-secondary);">Nenhum post gerado ainda</p>';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar histórico:', error);
+            }
+        }
+
+        function viewHistoryItem(filename) {
+            showStatus('Loading...', 'info');
+            // Pode implementar visualização detalhada do item
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

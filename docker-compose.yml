@@ -26,9 +26,7 @@ services:
       - OLLAMA_HOST=http://ollama:11434
     depends_on:
       - ollama
-    command: python app.py
-    stdin_open: true
-    tty: true
+    command: /entrypoint.sh
 
   agent2-gemini:
     build:
@@ -44,14 +42,14 @@ services:
     env_file:
       - ./agent2-gemini/.env
     command: python app.py
-    stdin_open: true
-    tty: true
 
-  orchestrator:
+  web-api:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: orchestrator
+    container_name: web-api
+    ports:
+      - "8000:8000"
     environment:
       - AGENT1_URL=http://agent1-local:8001
       - AGENT2_URL=http://agent2-gemini:8002
@@ -60,9 +58,7 @@ services:
     depends_on:
       - agent1-local
       - agent2-gemini
-    command: python main.py
-    stdin_open: true
-    tty: true
+    command: python web_app.py
 
 networks:
   instagram-ai-network:
